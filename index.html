@@ -8,6 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
   <style>
     body { margin: 0; overflow: hidden; background-color: black; }
@@ -39,8 +40,8 @@
   <canvas id="out"></canvas>
   <div class="darkness"></div>
 
-  <video id="g" class="fx" src="videos/goku.mp4" muted autoplay loop playsinline></video>
-  <video id="v" class="fx" src="videos/vegeta.mp4" muted autoplay loop playsinline></video>
+  <video id="g" class="fx" src="assets/goku.mp4" muted autoplay loop playsinline></video>
+  <video id="v" class="fx" src="assets/vegeta.mp4" muted autoplay loop playsinline></video>
 
   <script>
     const vElement = document.getElementById('v_src');
@@ -51,6 +52,11 @@
 
     let pwr = [0, 0];
     let wasOpen = [false, false];
+    let eyePositions = null;
+    let laserOpacity = 0;
+
+    const LEFT_EYE = 468;
+    const RIGHT_EYE = 473;
 
     function checkOpen(pts) {
       let count = 0;
@@ -65,6 +71,86 @@
       return count >= 3;
     }
 
+    function checkThumbUp(pts) {
+      const wrist = pts[0];
+      const thumbTip = pts[4];
+      const thumbMcp = pts[2];
+      const thumbUp = thumbTip.y < wrist.y - 0.1 &&
+                      Math.hypot(thumbTip.x - wrist.x, thumbTip.y - wrist.y) >
+                      Math.hypot(thumbMcp.x - wrist.x, thumbMcp.y - wrist.y);
+      const tips = [8, 12, 16, 20];
+      const pips = [6, 10, 14, 18];
+      let folded = 0;
+      for (let i = 0; i < tips.length; i++) {
+        const tip = pts[tips[i]];
+        const pip = pts[pips[i]];
+        if (Math.hypot(tip.x - wrist.x, tip.y - wrist.y) < Math.hypot(pip.x - wrist.x, pip.y - wrist.y)) folded++;
+      }
+      return thumbUp && folded >= 3;
+    }
+
+    function drawLasers() {
+      if (!eyePositions || laserOpacity <= 0) return;
+      const W = cElement.width;
+      const H = cElement.height;
+
+      [eyePositions.left, eyePositions.right].forEach(eye => {
+        const ex = (1 - eye.x) * W;
+        const ey = eye.y * H;
+
+        ctx.save();
+        ctx.globalAlpha = laserOpacity * 0.4;
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 12;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = '#ff0000';
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(0, ey);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.globalAlpha = laserOpacity;
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ff2200';
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(0, ey);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.globalAlpha = laserOpacity;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(0, ey);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.globalAlpha = laserOpacity;
+        ctx.fillStyle = '#ff0000';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ff0000';
+        ctx.beginPath();
+        ctx.arc(ex, ey, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    function onFaceResults(res) {
+      if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+        const lm = res.multiFaceLandmarks[0];
+        eyePositions = { left: lm[LEFT_EYE], right: lm[RIGHT_EYE] };
+      }
+    }
+
     function onResults(res) {
       cElement.width = vElement.videoWidth;
       cElement.height = vElement.videoHeight;
@@ -73,6 +159,7 @@
 
       let fL = false;
       let fR = false;
+      let thumbDetected = false;
 
       g.style.display = 'none';
       v.style.display = 'none';
@@ -89,6 +176,8 @@
           drawConnectors(ctx, pts, HAND_CONNECTIONS, {color: '#ffd700', lineWidth: 3});
           drawLandmarks(ctx, pts, {color: '#ffffff', lineWidth: 1, radius: 2});
           ctx.restore();
+
+          if (checkThumbUp(pts)) thumbDetected = true;
 
           const open = checkOpen(pts);
           pwr[idx] += open ? 0.05 : -0.15;
@@ -128,6 +217,10 @@
         });
       }
 
+      laserOpacity += thumbDetected ? 0.08 : -0.1;
+      laserOpacity = Math.max(0, Math.min(1, laserOpacity));
+      drawLasers();
+
       if (!fL) {
         pwr[0] = Math.max(0, pwr[0] - 0.15);
         if (pwr[0] > 0.01) { g.style.display = 'block'; g.style.opacity = pwr[0]; }
@@ -141,24 +234,37 @@
       ctx.restore();
     }
 
+    const faceMesh = new FaceMesh({
+      locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+    });
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    faceMesh.onResults(onFaceResults);
+
     const h = new Hands({
       locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
     });
-
     h.setOptions({
       maxNumHands: 2,
       modelComplexity: 1,
       minDetectionConfidence: 0.65,
       minTrackingConfidence: 0.65
     });
-
     h.onResults(onResults);
 
     const cam = new Camera(vElement, {
-      onFrame: async () => { await h.send({ image: vElement }); },
+      onFrame: async () => {
+        await faceMesh.send({ image: vElement });
+        await h.send({ image: vElement });
+      },
       width: 1280, height: 720
     });
     cam.start();
   </script>
 </body>
 </html>
+
