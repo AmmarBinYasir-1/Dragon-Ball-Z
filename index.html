@@ -55,9 +55,6 @@
     let eyePositions = null;
     let laserOpacity = 0;
 
-    const LEFT_EYE = 468;
-    const RIGHT_EYE = 473;
-
     function checkOpen(pts) {
       let count = 0;
       const wrist = pts[0];
@@ -82,9 +79,8 @@
       const pips = [6, 10, 14, 18];
       let folded = 0;
       for (let i = 0; i < tips.length; i++) {
-        const tip = pts[tips[i]];
-        const pip = pts[pips[i]];
-        if (Math.hypot(tip.x - wrist.x, tip.y - wrist.y) < Math.hypot(pip.x - wrist.x, pip.y - wrist.y)) folded++;
+        if (Math.hypot(pts[tips[i]].x - wrist.x, pts[tips[i]].y - wrist.y) 
+            Math.hypot(pts[pips[i]].x - wrist.x, pts[pips[i]].y - wrist.y)) folded++;
       }
       return thumbUp && folded >= 3;
     }
@@ -95,50 +91,57 @@
       const H = cElement.height;
 
       [eyePositions.left, eyePositions.right].forEach(eye => {
-        const ex = (1 - eye.x) * W;
+        // Canvas is mirrored via CSS, so x coord is already correct
+        const ex = eye.x * W;
         const ey = eye.y * H;
 
+        // Outer wide glow
         ctx.save();
-        ctx.globalAlpha = laserOpacity * 0.4;
+        ctx.globalAlpha = laserOpacity * 0.35;
         ctx.strokeStyle = '#ff0000';
-        ctx.lineWidth = 12;
-        ctx.shadowBlur = 30;
+        ctx.lineWidth = 18;
+        ctx.shadowBlur = 40;
         ctx.shadowColor = '#ff0000';
         ctx.beginPath();
         ctx.moveTo(ex, ey);
-        ctx.lineTo(0, ey);
+        ctx.lineTo(W, ey);
         ctx.stroke();
         ctx.restore();
 
+        // Mid glow
         ctx.save();
-        ctx.globalAlpha = laserOpacity;
-        ctx.strokeStyle = '#ff4444';
-        ctx.lineWidth = 4;
+        ctx.globalAlpha = laserOpacity * 0.7;
+        ctx.strokeStyle = '#ff2200';
+        ctx.lineWidth = 6;
         ctx.shadowBlur = 20;
-        ctx.shadowColor = '#ff2200';
+        ctx.shadowColor = '#ff0000';
         ctx.beginPath();
         ctx.moveTo(ex, ey);
-        ctx.lineTo(0, ey);
+        ctx.lineTo(W, ey);
         ctx.stroke();
         ctx.restore();
 
+        // Bright core
         ctx.save();
         ctx.globalAlpha = laserOpacity;
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(ex, ey);
-        ctx.lineTo(0, ey);
+        ctx.lineTo(W, ey);
         ctx.stroke();
         ctx.restore();
 
+        // Eye origin glow dot
         ctx.save();
         ctx.globalAlpha = laserOpacity;
-        ctx.fillStyle = '#ff0000';
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#ff0000';
+        const grad = ctx.createRadialGradient(ex, ey, 0, ex, ey, 12);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.3, '#ff4400');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(ex, ey, 5, 0, Math.PI * 2);
+        ctx.arc(ex, ey, 12, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       });
@@ -147,7 +150,13 @@
     function onFaceResults(res) {
       if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
         const lm = res.multiFaceLandmarks[0];
-        eyePositions = { left: lm[LEFT_EYE], right: lm[RIGHT_EYE] };
+        // 468 = left iris, 473 = right iris (requires refineLandmarks: true)
+        eyePositions = {
+          left: lm[468],
+          right: lm[473]
+        };
+      } else {
+        eyePositions = null;
       }
     }
 
@@ -186,7 +195,7 @@
           if (open && !wasOpen[idx]) {
             const vid = isR ? v : g;
             vid.currentTime = 0;
-            vid.play();
+            vid.play().catch(() => {});
           }
           wasOpen[idx] = open;
 
@@ -217,7 +226,7 @@
         });
       }
 
-      laserOpacity += thumbDetected ? 0.08 : -0.1;
+      laserOpacity += thumbDetected ? 0.1 : -0.12;
       laserOpacity = Math.max(0, Math.min(1, laserOpacity));
       drawLasers();
 
