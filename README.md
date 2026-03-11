@@ -12,3 +12,5 @@ Simple hand tracking with Goku / Vegeta powers.
 
 ### Note:
 - Glow removed to keep it compatible with all devices.
+
+- idk why but its take time to work on mobile phone as compare to windows , so its work better on pc
