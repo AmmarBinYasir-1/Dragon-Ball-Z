@@ -15,4 +15,4 @@ Simple hand tracking with Goku / Vegeta powers.
 
 - idk why but its take time to work on mobile phone as compare to windows , so its work better on pc
 
-Rule #1 of Coding: If the code works, don’t try to “fix” it… unless you’re ready to lose the rest of your day. 😅
+###Rule #1 of Coding: If the code works, don’t try to “fix” it… unless you’re ready to lose the rest of your day. 😅
