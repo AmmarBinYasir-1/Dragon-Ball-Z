@@ -8,8 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-
-  <style>
+ <style>
     body { margin: 0; overflow: hidden; background-color: black; }
     #v_src, #out {
       position: absolute; top: 0; left: 0;
@@ -31,8 +30,6 @@
     }
     #g { width: 1600px; }
     #v { width: 2400px; }
-
-  
     #emoji-overlay {
       position: fixed;
       top: 0; left: 0;
@@ -84,8 +81,7 @@
     let pwr = [0, 0];
     let wasOpen = [false, false];
 
-   
-    const THUMB_EMOJI = '🤍';
+   const THUMB_EMOJI = '🤍';
 
     const THUMB_COOLDOWN = 1200;
     let lastThumbTime = [0, 0];
@@ -112,8 +108,6 @@
 
       
       const thumbUp = thumbTip.y < thumbIP.y && thumbIP.y < thumbMCP.y;
-
-     
       const tips = [8, 12, 16, 20];
       const pips = [6, 10, 14, 18];
       let curledCount = 0;
